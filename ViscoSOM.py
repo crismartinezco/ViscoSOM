@@ -1,6 +1,12 @@
 from Functions import Preprocessing
 from pathlib import Path
 import constants as c
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+from matplotlib.gridspec import GridSpec
+from minisom import MiniSom
 
 f = Preprocessing ()
 def analyze_spectrum(path_to_dataset, ht_length, vdf_frequencies, n_fft):
@@ -49,50 +55,29 @@ def extract_peaks_info(sorted_peaks):
 
 def create_feature_vector(analysis_vector):
     # global feature_vector_dict
-    # create a key for each frequency inside the frequency range
-    # feature_vector_dict = {value: [] for value in peaks_info[0]}
-    # # add the keys "Damping" and "LaPlace"
-    # feature_vector_dict["Damping"] = []
-    # feature_vector_dict["LaPlace"] = []
-    # feature_vector_dict["buff"] = []
 
-    # #tryout
-    # feature_vector_dict = dict.fromkeys (peaks_info, [])
-    feature_vector_dict = {tuple (row): [] for row in peaks_info}
-    feature_vector_dict.update ({"Damping": [], "LaPlace": [], "buff": []})
+    # create a key for each frequency inside the frequency range
+    feature_vector_dict = {value: [] for value in peaks_info[0]}
+
+    # add the keys "Damping" and "LaPlace"
+    feature_vector_dict["Damping"] = []
+    feature_vector_dict["LaPlace"] = []
+    feature_vector_dict["buff"] = []
 
     # extract and append values to the dictionary
-    # for idx, laplace_result in enumerate (analysis_vector):
-    #     # TODO: create the case for a specific n_buff
-    #     # if laplace_result['n_buff'] == n_buff and laplace_result['Frequency'] == VDF:
-    #     if laplace_result['Frequency'] == VDF:
-    #         feature_vector_dict['Damping'].append (laplace_result['Damping'][0])
-    #         feature_vector_dict['LaPlace'].append (laplace_result['LaPlace'][0])
-    #         feature_vector_dict['buff'].append (laplace_result['n_buff'])
-    #
-    #         for peak_freqs, peak_index in zip (peaks_info[0], peaks_info[1]):
-    #             key_to_append = peak_freqs
-    #
-    #             if key_to_append in feature_vector_dict:
-    #                 feature_vector_dict[key_to_append].append (laplace_result["FFT"][peak_index][time_value][0])
-    # return feature_vector_dict
-
-
-    for idx, laplace_result in enumerate(analysis_vector):
-        # Filter based on n_buff if needed (uncomment and define logic)
-        # if laplace_result['n_buff'] == n_buff:
-
+    for idx, laplace_result in enumerate (analysis_vector):
+        # TODO: create the case for a specific n_buff
+        # if laplace_result['n_buff'] == n_buff and laplace_result['Frequency'] == VDF:
         if laplace_result['Frequency'] == VDF:
-            feature_vector_dict['Damping'].append(laplace_result['Damping'][0])
-            feature_vector_dict['LaPlace'].append(laplace_result['LaPlace'][0])
-            feature_vector_dict['buff'].append(laplace_result['n_buff'])
+            feature_vector_dict['Damping'].append (laplace_result['Damping'][0])
+            feature_vector_dict['LaPlace'].append (laplace_result['LaPlace'][0])
+            feature_vector_dict['buff'].append (laplace_result['n_buff'])
 
-            # Append peak values using dictionary.get and list comprehension
-            feature_vector_dict.update({peak_freqs: laplace_result["FFT"][peak_index][time_value][0] for peak_freqs, peak_index in zip(peaks_info[0], peaks_info[1])})
-        else:
-            # Exit loop if Frequency doesn't match VDF
-            break
+            for peak_freqs, peak_index in zip (peaks_info[0], peaks_info[1]):
+                key_to_append = peak_freqs
 
+                if key_to_append in feature_vector_dict:
+                    feature_vector_dict[key_to_append].append (laplace_result["FFT"][peak_index][time_value][0])
     return feature_vector_dict
 
 
@@ -133,23 +118,125 @@ peaks_info = extract_peaks_info (sorted_peaks)
 # create the dictionary for the feature vector
 feature_vector_dict = create_feature_vector (laplace_variations_analysis_vector)
 
-#%%
-
-"""
-# # Create a DataFrame from the list of dictionaries
+# Create a DataFrame from the feature vector dict
 feature_vector_dataframe = pd.DataFrame(feature_vector_dict)
 
-# SOM
-target1 = np.array(feature_vector_dataframe['Damping'].values)
-target2 = np.array(feature_vector_dataframe['LaPlace'].values)
-target3 = np.array(feature_vector_dataframe['buff'].values)
-
-labels = list(sorted(set(feature_vector_dataframe['Damping'].values)))
+# The last three columns correspond to metadata for map calibration
 data = feature_vector_dataframe[feature_vector_dataframe.columns[:-3]]
 
 # data normalization
 data = (data - np.mean(data, axis=0)) / np.std(data, axis=0)
-data = data.values"""
+data = data.values
 
+# CREATING THE SOM - CALIBRATION
 
-print(feature_vector_dict)
+target1 = np.array(feature_vector_dataframe['Damping'].values) # Re values
+target2 = np.array(feature_vector_dataframe['LaPlace'].values) # Gamma values
+target3 = np.array(feature_vector_dataframe['buff'].values) # Integration time / length of h(T)
+labels = list(sorted(set(feature_vector_dataframe['Damping'].values)))
+
+# U-matrix colors
+cmapcolor = 'bone'
+alpha = 1
+
+# Initialization and training
+n_neurons = 20
+m_neurons = 20
+nf = 'gaussian'
+som = MiniSom(n_neurons, m_neurons, data.shape[1], sigma=1.5, learning_rate=.5,
+              neighborhood_function=nf, random_seed=0, topology='rectangular')
+
+som.pca_weights_init(data)
+som.train(data, 1000, verbose=True)  # training
+
+# create the U-matrix
+u_matrix = som.distance_map ()
+# ww = som.get_weights ()
+
+# coordenates for the scatter plot
+w_x, w_y = zip(*[som.winner(d) for d in data])
+w_x = np.array(w_x)
+w_y = np.array(w_y)
+
+"""Calibration according to targets.
+- The higher the value of Re, the darker the color of the data point.
+- The smaller the value of gamma, the bigger the size of the data point.
+"""
+
+# Define the colormap range and colors
+cmap = plt.cm.viridis_r
+colors = cmap(np.linspace(0, 1, 256))
+
+# Set the color for the Reference Cases (Re = 0)
+colors[0] = [0.5, 0.5, 0.5, 1.0]  # Gray color for the 0 value
+
+# Create a new colormap with the modified colors
+cmap_modified = mcolors.ListedColormap(colors)
+
+plt.figure(figsize=(10, 10))
+plt.pcolor(som.distance_map().T, cmap=cmapcolor, alpha=alpha)
+# Eliminate white space around plot elements
+
+# without legend
+# plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.95)
+
+# with legend
+# plt.subplots_adjust(left=0.05, right=0.95, bottom=0.1, top=0.95)
+# plt.colorbar()
+
+unique_values = np.unique(target1)
+
+for idx, c in enumerate(unique_values):
+    idx_target = target1 == c
+
+    # Choose a color from the Viridis colormap
+    color = cmap_modified (idx / len (unique_values))
+
+    # Define size based on target2 values (scale and normalize)
+    size_values = (target2[idx_target] - np.min (target2[idx_target])) / \
+                  (np.max (target2[idx_target]) - np.min (target2[idx_target])) * 300  # Adjust max_size as needed
+    plt.scatter(w_x[idx_target] + .5 + (np.random.rand(np.sum(idx_target)) - .5) * .5,
+                w_y[idx_target] + .5 + (np.random.rand(np.sum(idx_target)) - .5) * .8,
+                s=size_values, marker='o', color=color, label=f'{c}', alpha=1, edgecolors='black', linewidths=1)
+
+# plt.title(f'VDF: 700Hz - FR: {min_freq}Hz - {max_freq}Hz - {time_value[0]}ms')
+# plt.grid()
+plt.yticks(range(0, n_neurons+1, 5), fontsize = 'x-large')
+plt.xticks(range(0, n_neurons+1, 5), fontsize = 'x-large')
+
+# plt.yticks([])
+# plt.xticks ([])
+
+# plt.legend(loc='upper center', bbox_to_anchor=(0.55, -0.03), ncol=6, fontsize = 'large')
+plt.tight_layout()
+plt.savefig('SOM LaPlace and Damping.png', dpi=300)
+plt.show()
+plt.close()
+
+# Plot the contour of the spectrum of the feature vector
+
+win_map = som.win_map(data)
+
+plt.figure(figsize=(10, 10))
+# plt.pcolor(som.distance_map().T, cmap=cmapcolor, alpha=0.5)
+# plt.subplots_adjust(left=0.05, right=0.98, bottom=0.03, top=0.99, wspace=0.6, hspace=0.3)
+plt.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.95)
+plt.yticks(range(0, n_neurons+1, 5), fontsize = 'x-large')
+plt.xticks(range(0, n_neurons+1, 5), fontsize = 'x-large')
+
+the_grid = GridSpec(m_neurons, n_neurons)
+for position in win_map.keys():
+    row, col = m_neurons-1-position[1], position[0]
+    ax = plt.subplot(the_grid[row, col])
+
+    # plt.plot(np.min(win_map[position], axis=0), color='gray', alpha=.5)
+    # plt.plot(np.max(win_map[position], axis=0), color='gray', alpha=.5)
+    plt.plot (np.mean (win_map[position], axis=0), linewidth=1)
+    # plt.yticks (fontsize='small')
+    plt.yticks([])
+    plt.xticks ([])
+
+plt.tight_layout()
+plt.savefig('time series.png', dpi=600)
+plt.show()
+plt.close()
