@@ -1,3 +1,4 @@
+from matplotlib import gridspec
 import constants
 from Functions import Preprocessing
 from pathlib import Path
@@ -5,7 +6,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-from matplotlib.gridspec import GridSpec
 from minisom import MiniSom
 
 
@@ -178,6 +178,127 @@ def dict_for_som(analysis_vector,
   # Return the dictionary containing the feature vectors
   return feature_vector_dict
 
+# Ploting functions
+
+def plot_som(legend=True,
+             umatrix_colorbar=False,
+             ticks=True,
+             title=True,
+             save=True):
+    figsize = (10, 11) if legend else (15,13) if legend and umatrix_colorbar else (10, 10)
+    bottom_adjust = 0.1 if legend else 0.05
+
+    plt.figure (figsize=figsize)
+    plt.subplots_adjust (left=0.05, right=0.95, bottom=bottom_adjust, top=0.95)
+    p = plt.pcolor (som.distance_map ().T, cmap=cmapcolor, alpha=alpha)  # Store the plot object
+
+    if umatrix_colorbar:
+        plt.colorbar (p)
+
+    unique_values = np.unique (target1)
+    color_vals = cmap_modified (np.arange (len (unique_values)) / len (unique_values))  # Vectorize color assignment
+    random_offsets_x = np.random.rand (len (target1)) - 0.5  # Pre-compute random offsets (x)
+    random_offsets_y = np.random.rand (len (target1)) - 0.5  # Pre-compute random offsets (y)
+
+    for idx, c in enumerate (unique_values):
+        idx_target = target1 == c
+        size_values = (target2[idx_target] - np.min (target2[idx_target])) / \
+                      (np.max (target2[idx_target]) - np.min (target2[idx_target])) * 300
+
+        plt.scatter (w_x[idx_target] + 0.5 + random_offsets_x[idx_target] * 0.5,
+                     w_y[idx_target] + 0.5 + random_offsets_y[idx_target] * 0.8,
+                     s=size_values, marker='o', color=color_vals[idx], label=f'{c}', alpha=1, edgecolors='black',
+                     linewidths=1)
+
+    T = 4 if n_buff == 384 else 7 if n_buff == 672 else 10
+
+    ti = fr'$VDF$ = {VDF}Hz - $T$ = {T}ms - $FR$ = {min_freq}Hz - {max_freq}Hz - $t$ = {time_value[0]}ms'
+
+    if title:
+        plt.title (f'{ti}', fontsize='xx-large')
+
+    if legend:
+        plt.legend (loc='upper center', bbox_to_anchor=(0.55, -0.03), ncol=6, fontsize='large')
+
+    if ticks:
+        plt.yticks (range (0, n_neurons + 1, 5), fontsize='x-large')
+        plt.xticks (range (0, n_neurons + 1, 5), fontsize='x-large')
+    else:
+        plt.yticks ([])
+        plt.xticks ([])
+
+    plt.tight_layout ()
+
+    if save:
+        plt.savefig ('SOM_nolegend.png', dpi=300)
+    plt.show ()
+    plt.close ()
+
+def plot_som_colorbar_legend(legend=True,
+             umatrix_colorbar=False,
+             ticks=True,
+             title=True,
+             save=True):
+
+    figsize = (10, 11) if legend else (11, 11) if legend and umatrix_colorbar else (10, 10)
+    bottom_adjust = 0.1 if legend else 0.05
+
+    fig = plt.figure (figsize=figsize)
+
+    # Adjust the height of the colorbar subplot directly
+    gs = gridspec.GridSpec (2, 1, height_ratios=[11, 0.4],
+                            hspace=0.1, left=0.07, right=0.93, bottom=bottom_adjust, top=0.95)
+
+    ax_main = plt.subplot(gs[0])
+    ax_colorbar = plt.subplot(gs[1])
+
+    ax_main.set_aspect('equal')
+
+    p = ax_main.pcolor(som.distance_map().T, cmap=cmapcolor, alpha=alpha)
+
+    if umatrix_colorbar:
+        colorbar = plt.colorbar(p, orientation='horizontal', cax=ax_colorbar)
+        colorbar.ax.tick_params (labelsize='x-large')
+
+    unique_values = np.unique(target1)
+    color_vals = cmap_modified(np.arange(len(unique_values)) / len(unique_values))
+    random_offsets_x = np.random.rand(len(target1)) - 0.5
+    random_offsets_y = np.random.rand(len(target1)) - 0.5
+
+    for idx, c in enumerate(unique_values):
+        idx_target = target1 == c
+        size_values = (target2[idx_target] - np.min(target2[idx_target])) / \
+                      (np.max(target2[idx_target]) - np.min(target2[idx_target])) * 300
+
+        ax_main.scatter(w_x[idx_target] + 0.5 + random_offsets_x[idx_target] * 0.5,
+                        w_y[idx_target] + 0.5 + random_offsets_y[idx_target] * 0.8,
+                        s=size_values, marker='o', color=color_vals[idx], label=f'{c}', alpha=1, edgecolors='black',
+                        linewidths=1)
+
+    T = 4 if n_buff == 384 else 7 if n_buff == 672 else 10
+    ti = fr'$VDF$ = {VDF}Hz - $T$ = {T}ms - $FR$ = {min_freq}Hz - {max_freq}Hz - $t$ = {time_value[0]}ms'
+
+    if title:
+        ax_main.set_title(f'{ti}', fontsize='xx-large')
+
+    if legend:
+        bbox_to_anchor = (0.55, -0.03) if not umatrix_colorbar else (0.5, -0.12)
+        ax_main.legend (loc='upper center', bbox_to_anchor=bbox_to_anchor, ncol=6, fontsize='x-large')
+
+    if ticks:
+        ax_main.set_yticks(range(0, n_neurons + 1, 5))
+        ax_main.set_xticks(range(0, n_neurons + 1, 5))
+        ax_main.tick_params(axis='both', which='major', labelsize='x-large')
+    else:
+        ax_main.set_yticks([])
+        ax_main.set_xticks([])
+
+    if save:
+        plt.savefig('SOM.png', dpi=300)
+    plt.show()
+    plt.close()
+
+
 # %%
 pre_p = Preprocessing (n_fft=4096)
 
@@ -194,26 +315,18 @@ laplace_variations_analysis_vector = pre_p.analyze_spectrum (path_to_dataset=dir
                                                              vdf_frequencies=vdf_frequencies)
 
 # %%
-# Parameters of the pipeline
+"""Set the parameters of the data pipeline"""
 
-n_fft = 4096  # Window size of the n_fft
-time_value = [60]  # time t at which peak picking is performed
+n_fft = 4096  # Window size of the STFT
+time_value = [60]  # Time t at which peak picking is performed
 n_buff = 672  # integration time T
-VDF = 700
+VDF = 12000 # Viscoelastically Damped Frequency
 frequency_range = 1000 / 2  # FR of the analysis Freq. Range
-# Specify the frequency range
 min_freq = VDF - frequency_range
 max_freq = VDF + frequency_range
 
-# create_v = CreateVector (analysis_vector=laplace_variations_analysis_vector,
-#                          n_buff=n_buff,
-#                          VDF=VDF,
-#                          min_freq=min_freq,
-#                          max_freq=max_freq)
-
-
-feature_vector_dataframe = pd.DataFrame (create_v.dict_for_som (laplace_variations_analysis_vector,
-                                                       ht_analysis=False,
+feature_vector_dataframe = pd.DataFrame (dict_for_som (laplace_variations_analysis_vector,
+                                                       ht_analysis=False, # Set to True to plot ONLY one integration time
                                                        n_buff=n_buff,
                                                        VDF=VDF,
                                                        min_freq=min_freq,
@@ -272,181 +385,7 @@ colors[0] = [0.5, 0.5, 0.5, 1.0]  # Gray color for the 0 value
 # Create a new colormap with the modified colors
 cmap_modified = mcolors.ListedColormap (colors)
 
+# plot_som_colorbar_legend(title=False, umatrix_colorbar=False, legend=False, save=False)
+plot_som (title=False, umatrix_colorbar=False, save=True, legend=True)
 
-# %%
-def plot_som(legend=True,
-             umatrix_colorbar=False,
-             ticks=True,
-             title=True,
-             save=True):
-    figsize = (10, 11) if legend else (10, 10)
-    bottom_adjust = 0.1 if legend else 0.05
-
-    plt.figure (figsize=figsize)
-    plt.subplots_adjust (left=0.05, right=0.95, bottom=bottom_adjust, top=0.95)
-    p = plt.pcolor (som.distance_map ().T, cmap=cmapcolor, alpha=alpha)  # Store the plot object
-
-    if umatrix_colorbar:
-        plt.colorbar (p)  # Use the plot object for the colorbar
-
-    unique_values = np.unique (target1)
-    color_vals = cmap_modified (np.arange (len (unique_values)) / len (unique_values))  # Vectorize color assignment
-    random_offsets_x = np.random.rand (len (target1)) - 0.5  # Pre-compute random offsets (x)
-    random_offsets_y = np.random.rand (len (target1)) - 0.5  # Pre-compute random offsets (y)
-
-    for idx, c in enumerate (unique_values):
-        idx_target = target1 == c
-        size_values = (target2[idx_target] - np.min (target2[idx_target])) / \
-                      (np.max (target2[idx_target]) - np.min (target2[idx_target])) * 300
-
-        plt.scatter (w_x[idx_target] + 0.5 + random_offsets_x[idx_target] * 0.5,
-                     w_y[idx_target] + 0.5 + random_offsets_y[idx_target] * 0.8,
-                     s=size_values, marker='o', color=color_vals[idx], label=f'{c}', alpha=1, edgecolors='black',
-                     linewidths=1)
-
-    T = 4 if n_buff == 384 else 7 if n_buff == 672 else 10
-
-    ti = fr'$VDF$ = {VDF}Hz - $T$ = {T}ms - $FR$ = {min_freq}Hz - {max_freq}Hz - $t$ = {time_value[0]}ms'
-
-    if title:
-        # plt.title(f'{VDF}Hz - FR: {min_freq}Hz - {max_freq}Hz - t = {time_value[0]}ms', fontsize='xx-large')
-        plt.title (f'{ti}', fontsize='xx-large')
-
-    if legend:
-        plt.legend (loc='upper center', bbox_to_anchor=(0.55, -0.03), ncol=6, fontsize='large')
-
-    if ticks:
-        plt.yticks (range (0, n_neurons + 1, 5), fontsize='x-large')
-        plt.xticks (range (0, n_neurons + 1, 5), fontsize='x-large')
-    else:
-        plt.yticks ([])
-        plt.xticks ([])
-
-    plt.tight_layout ()
-
-    if save:
-        plt.savefig ('SOM.png', dpi=300)
-    plt.show ()
-    plt.close ()
-
-plot_som ()
-
-#%%
-
-def plot_integration_time(legend=True,
-                          umatrix_colorbar=False,
-                          ticks=True,
-                          title=True,
-                          save=True,
-                          shape=False):
-
-    figsize = (10, 11) if legend else (10, 10)
-    bottom_adjust = 0.1 if legend else 0.05
-
-    plt.figure(figsize=figsize)
-    plt.subplots_adjust(left=0.05, right=0.95, bottom=bottom_adjust, top=0.95)
-    p = plt.pcolor(som.distance_map().T, cmap=cmapcolor, alpha=alpha)  # Store the plot object
-
-    if umatrix_colorbar:
-        plt.colorbar(p)  # Use the plot object for the colorbar
-
-    if shape:
-
-        markers = ['o', '^', 'P']
-        marker_labels = {
-            markers[0]: '4ms',
-            markers[1]: '7ms',
-            markers[2]: '10ms'
-        }
-        unique_values = np.unique(target1)
-
-        for idx, c in enumerate (unique_values):
-            idx_target = target1 == c
-            color = cmap_modified (idx / len (unique_values))
-
-            # Define size based on target2 values (scale and normalize)
-            size_values = (target2[idx_target] - np.min (target2[idx_target])) / \
-                          (np.max (target2[idx_target]) - np.min (
-                              target2[idx_target])) * 300  # Adjust max_size as needed
-
-            # Set marker based on target3 value
-            for i, t in enumerate (target3[idx_target]):
-                if t == 384:
-                    marker = markers[0]
-                    label = f'{marker} 4ms'
-                elif t == 672:
-                    marker = markers[1]
-                    label = f'{marker} 7ms'
-                elif t == 960:
-                    marker = markers[2]
-                    label = f'{marker} 10ms'
-                else:
-                    marker = 'o'  # Default marker if target3 doesn't match any condition
-
-                plt.scatter (w_x[idx_target][i] + .5 + (np.random.rand () - .5) * .5,
-                             w_y[idx_target][i] + .5 + (np.random.rand () - .5) * .8,
-                             s=size_values[i], marker=marker, color=color, label=marker_labels[marker], alpha=1,
-                             edgecolors='black',
-                             linewidths=1)
-
-        T = 4 if n_buff == 384 else 7 if n_buff == 672 else 10
-
-        ti = fr'$VDF$ = {VDF}Hz - $T$ = {T}ms - $FR$ = {min_freq}Hz - {max_freq}Hz - $t$ = {time_value[0]}ms'
-
-    else:
-
-        unique_values = np.unique(target3)
-        colors = ['red', 'blue', 'yellow']
-
-
-        for idx, c in enumerate(unique_values):
-            idx_target = target3 == c
-
-            if c == 384:
-                label = f'4ms'
-            elif c == 672:
-                label = f'7ms'
-            elif c == 960:
-                label = f'10ms'
-            else:
-                marker = 'o'  # Default marker if target3 doesn't match any condition
-
-            color = colors[idx]
-
-            size_values = (target2[idx_target] - np.min(target2[idx_target])) / \
-                          (np.max(target2[idx_target]) - np.min(target2[idx_target])) * 300
-
-            plt.scatter(w_x[idx_target] + .5 + (np.random.rand(np.sum(idx_target)) - .5) * .5,
-                        w_y[idx_target] + .5 + (np.random.rand(np.sum(idx_target)) - .5) * .8,
-                        s=size_values, marker='o', color=color, label=label, alpha=1, edgecolors='black', linewidths=1)
-
-            ti = fr'$VDF$ = {VDF}Hz - $T$ comparison - $FR$ = {min_freq}Hz - {max_freq}Hz - $t$ = {time_value[0]}ms'
-
-    if title:
-        plt.title(f'{ti}', fontsize='xx-large')
-
-    if legend:
-        if shape:
-            # Create legend with custom labels
-            handles, labels = plt.gca ().get_legend_handles_labels ()
-            by_label = dict (zip (labels, handles))
-            plt.legend (by_label.values (), by_label.keys (), loc='upper center', bbox_to_anchor=(0.55, -0.03), ncol=3,
-                        fontsize='xx-large')
-        else:
-            plt.legend(loc='upper center', bbox_to_anchor=(0.55, -0.03), ncol=6, fontsize='xx-large')
-
-    if ticks:
-        plt.yticks(range(0, n_neurons + 1, 5), fontsize='x-large')
-        plt.xticks(range(0, n_neurons + 1, 5), fontsize='x-large')
-    else:
-        plt.yticks([])
-        plt.xticks([])
-
-    plt.tight_layout()
-
-    if save:
-        plt.savefig('SOM.png', dpi=300)
-    plt.show()
-    plt.close()
-
-plot_integration_time(shape=True, legend=True)
+plot_som_colorbar_legend(title=False, umatrix_colorbar=False, legend=True, save=True)
