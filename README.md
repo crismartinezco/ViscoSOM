@@ -1,4 +1,4 @@
-# 🤖📚 Physics-Informed Self Organizing Maps for Analyses of Viscoelastic Damping 
+# 🤖📚 Physics-Informed Self Organizing Maps for Viscoelastic Damping Analysis
 
 This is the code employed in the paper "Analysis of nonlinear behavior of viscoelastic damping in musical membranes using physics-informed self-organizing maps" (
 https://doi.org/10.1063/5.0242985). The entire data pipeline is explained in the paper. The code was tested with the versions of the packages included in requirements.txt.
