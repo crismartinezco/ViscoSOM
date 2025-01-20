@@ -306,8 +306,10 @@ pre_p = Preprocessing (n_fft=4096)
 # Parameters of the simulation
 ht_length = [384, 672, 960]
 vdf_frequencies = [700, 2000, 3300, 6400, 12000]
-directory_path_laplace = Path (r'C:\Users\LEGION\PycharmProjects\pythonProject\venv\Laplace variations')
-directory_path_gammaconst = Path (r'C:\Users\LEGION\PycharmProjects\pythonProject\venv\gammaconst')
+directory_path_laplace = Path (Path\\to\\your\\Dataset)
+
+# only if having a dataset with one parameter fixed
+directory_path_gammaconst = Path (Path\\to\\your\\Dataset) 
 
 # Run STFT and Peak Extraction
 laplace_variations_analysis_vector = pre_p.analyze_spectrum (path_to_dataset=directory_path_laplace,
