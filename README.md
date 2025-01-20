@@ -19,6 +19,8 @@ The dataset is stored in https://zenodo.org/records/13934953.
    ```bash
    pip install -r requirements.txt
 
+4. Run the ViscoSOM.py file
+
 ## Usage
 
 The model is configured as a .py file, where the entire datapipeline happens, so please pay attention to the way the data has been annotated. These are fundamental requirements for the visualization of the SOM. There is to date no GUI since the model is very straightforward. I will add a jupyter notebook version in the future.
